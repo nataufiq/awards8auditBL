@@ -1,5 +1,6 @@
-// Vercel Serverless Function: stores votes in Upstash Redis (Vercel Marketplace → Upstash / KV).
-// Requires env vars KV_REST_API_URL and KV_REST_API_TOKEN (added automatically by the integration).
+// Vercel Serverless Function: stores votes in Upstash Redis.
+// Env vars (added automatically by the Upstash integration): KV_REST_API_URL, KV_REST_API_TOKEN
+// Voters can only submit and check their own status. They cannot read other people's votes.
 const URL_ = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 const KEY = "awards8:votes";
@@ -16,17 +17,14 @@ async function redis(cmd) {
 module.exports = async (req, res) => {
   if (!URL_ || !TOKEN) return res.status(500).json({ error: "Storage not configured" });
 
+  // Check whether a single voter has already voted
   if (req.method === "GET") {
-    if (req.query.voter) {
-      const exists = await redis(["HEXISTS", KEY, req.query.voter]);
-      return res.json({ voted: exists === 1 });
-    }
-    const flat = (await redis(["HGETALL", KEY])) || [];
-    const votes = [];
-    for (let i = 1; i < flat.length; i += 2) votes.push(JSON.parse(flat[i]));
-    return res.json({ votes });
+    if (!req.query.voter) return res.status(403).json({ error: "Forbidden" });
+    const exists = await redis(["HEXISTS", KEY, req.query.voter]);
+    return res.json({ voted: exists === 1 });
   }
 
+  // Submit a ballot (once per voter)
   if (req.method === "POST") {
     const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
     if (!body || !body.voter || !body.picks) return res.status(400).json({ error: "Invalid payload" });

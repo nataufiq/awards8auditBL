@@ -217,9 +217,6 @@ main.content{padding:0 16px 140px;margin-top:-50px}
 .pill{font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px}
 .pill.ok{background:var(--green-soft);color:var(--green)}
 .pill.no{background:var(--yellow-soft);color:#8a6a00}
-.admin-box{margin-top:18px;border:1.5px dashed var(--line);border-radius:16px;padding:16px;display:grid;gap:10px}
-.admin-box h4{font-size:14px}
-.admin-box p{font-size:12.5px;color:var(--muted)}
 
 /* Confirmation modal */
 .modal{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:16px;pointer-events:none}
@@ -372,7 +369,7 @@ main.content{padding:0 16px 140px;margin-top:-50px}
     <h1 id="done-title">Terima kasih!</h1>
     <p id="doneText">Pilihanmu sudah terekam.</p>
     <div class="done-actions">
-      <button class="btn btn-yellow" id="doneProfile">Lihat profil &amp; rekap</button>
+      <button class="btn btn-yellow" id="doneProfile">Lihat profil</button>
       <button class="btn btn-ghost" id="doneLogout">Keluar</button>
     </div>
   </div>
@@ -432,11 +429,6 @@ main.content{padding:0 16px 140px;margin-top:-50px}
       <li><span>Login sejak</span><b id="profLogin">—</b></li>
     </ul>
     <button class="btn btn-ghost btn-block" id="logoutBtn">Keluar</button>
-    <div class="admin-box">
-      <h4>Rekap data (Excel)</h4>
-      <p id="adminInfo">Unduh semua hasil pemilihan: kolom Nama Mahasiswa + 19 kolom Ter-.</p>
-      <button class="btn btn-yellow" id="downloadBtn">Unduh Rekap .xls</button>
-    </div>
   </div>
 </aside>
 
@@ -813,48 +805,6 @@ function confetti() {
 }
 
 /* =========================================================
-   J. EXCEL EXPORT (SpreadsheetML, opens natively in Excel)
-   ========================================================= */
-async function collectVotes() {
-  let rows = Object.values(readJSON(LS.votes, {}));
-  let source = "perangkat ini";
-  try {
-    const r = await fetch(API);
-    if (r.ok) {
-      const data = await r.json();
-      if (Array.isArray(data.votes)) { rows = data.votes; source = "server"; }
-    }
-  } catch {}
-  return { rows, source };
-}
-
-async function downloadExcel() {
-  const { rows, source } = await collectVotes();
-  if (!rows.length) { toast("Belum ada data pemilihan"); return; }
-  const cell = v => `<Cell><Data ss:Type="String">${esc(v ?? "")}</Data></Cell>`;
-  const header = ["Nama Mahasiswa", ...AWARDS.map(a => a.title)];
-  const body = rows
-    .sort((a, b) => a.voter.localeCompare(b.voter))
-    .map(r => `<Row>${cell(r.voter)}${AWARDS.map(a => cell(r.picks[a.title])).join("")}</Row>`).join("");
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-<Styles><Style ss:ID="h"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#14235C" ss:Pattern="Solid"/></Style></Styles>
-<Worksheet ss:Name="Rekap Awards"><Table>
-${header.map(() => `<Column ss:Width="150"/>`).join("")}
-<Row>${header.map(h => `<Cell ss:StyleID="h"><Data ss:Type="String">${esc(h)}</Data></Cell>`).join("")}</Row>
-${body}
-</Table></Worksheet></Workbook>`;
-  const blob = new Blob([xml], { type: "application/vnd.ms-excel" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `Rekap_8Audit_Awards_${new Date().toISOString().slice(0, 10)}.xls`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  toast(`${rows.length} data diunduh (sumber: ${source})`);
-}
-
-/* =========================================================
    K. EVENT WIRING
    ========================================================= */
 $("#awardGrid").addEventListener("click", e => { const b = e.target.closest("[data-award]"); if (b) openSheet(+b.dataset.award); });
@@ -873,7 +823,6 @@ $("#confirmBtn").addEventListener("click", submitVotes);
 $("#logoutBtn").addEventListener("click", logout);
 $("#doneLogout").addEventListener("click", logout);
 $("#doneProfile").addEventListener("click", openProfile);
-$("#downloadBtn").addEventListener("click", downloadExcel);
 $("#scrim").addEventListener("click", () => closeAll());
 document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => closeAll()));
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeAll(); });
