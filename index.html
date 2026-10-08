@@ -581,12 +581,12 @@ function initLogin() {
 }
 
 async function hasVoted(name) {
-  if (readJSON(LS.votes, {})[name]) return true;
+  // Server is the source of truth; local copy is only a fallback when offline
   try {
     const r = await fetch(`${API}?voter=${encodeURIComponent(name)}`);
     if (r.ok) return !!(await r.json()).voted;
   } catch {}
-  return false;
+  return !!readJSON(LS.votes, {})[name];
 }
 
 async function login(name) {
